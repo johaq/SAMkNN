@@ -80,7 +80,7 @@ class ClassifierVisualizer(ClassifierListener):
             self.draw(classifier, trainStep)
 
     def plot(self, samples, labels, fig, subplot, title, colors, XRange, YRange):
-        fig.hold(True)
+        #fig.hold(True)
         if len(labels) > 0:
             subplot.scatter(samples[:, 0], samples[:, 1], s=10, c=colors[labels.astype(int)],
                             edgecolor=colors[labels.astype(int)])

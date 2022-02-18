@@ -6,6 +6,9 @@ from sklearn.cluster import KMeans
 from collections import deque
 import logging
 
+from metric_learn import LMNN
+
+
 class SAMKNN(BaseClassifier):
     """
     Self Adjusting Memory (SAM) coupled with the k Nearest Neighbor classifier.
@@ -31,7 +34,8 @@ class SAMKNN(BaseClassifier):
     useLTM : boolean, optional (default=True)
         Specifies whether the LTM should be used at all.
     """
-    def __init__(self, n_neighbors=5, knnWeights='distance', maxSize=5000, LTMSizeProportion = 0.4, minSTMSize=50, recalculateSTMError=False, useLTM=True, listener=[]):
+    def __init__(self, n_neighbors=5, knnWeights='distance', maxSize=5000, LTMSizeProportion = 0.4, minSTMSize=50,
+                 recalculateSTMError=False, useLTM=True, listener=[], metric='LMNN', metric_step=100):
 
         self.n_neighbors = n_neighbors
         self._STMSamples = None
@@ -75,6 +79,12 @@ class SAMKNN(BaseClassifier):
         self.classifierChoice = []
         self.predHistory = []
 
+        # Calculate metric every metric_step data points to apply to STM data
+        self.metric = metric
+        self.metric_init = False
+        self.metric_step = metric_step
+        self.metric_learner = LMNN(k=3, learn_rate=1e-6, verbose=False)
+
     def getClassifier(self):
         return None
 
@@ -87,14 +97,43 @@ class SAMKNN(BaseClassifier):
         else:
             predictedLabels = []
             for sample in samples:
-                distancesSTM = SAMKNN.getDistances(sample, self._STMSamples)
+                distancesSTM = self.getMetricDistances(sample, self._STMSamples, self._STMLabels)
                 predictedLabels.append(self.predictFct(sample, -1, distancesSTM))
             return np.array(predictedLabels)
 
-    @staticmethod
-    def getDistances(sample, samples):
+    #@staticmethod
+    def getDistances(self, sample, samples):
         """Calculate distances from sample to all samples."""
+        if self.metric != 'none' and self.metric_init and np.size(samples) != 0:
+            samples = self.metric_learner.transform(samples)
+            sample = self.metric_learner.transform(np.stack([sample]))
+            sample = sample[0]
+
         return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
+
+
+    def getMetricDistances(self, sample, samples, samples_labels):
+        """Calculate distances from sample to all samples."""
+        try:
+            if self.metric != 'none':
+                if self.trainStepCount >= self.metric_step:
+                    if self.trainStepCount % self.metric_step == 0:
+                        logging.debug('Relearn metric after %d steps' % self.trainStepCount)
+                        logging.debug('Sample shape %s; Label shape %s' % (np.shape(samples), np.shape(samples_labels)))
+                        try:
+                            self.metric_learner.fit(samples, samples_labels)
+                            samples = self.metric_learner.transform(samples)
+                            sample = self.metric_learner.transform(np.stack([sample]))
+                            sample = sample[0]
+                            self.metric_init = True
+                            self.trainStepCount += 1
+                        except TypeError:
+                            logging.info('Imposter list empty for lmnn, continue with euclidian distances for now')
+        except ValueError:
+            logging.info("Not enough data of every class to calculate metric yet. Skipping.")
+
+        return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
+
 
     def clusterDown(self, samples, labels):
         """Performs classwise kMeans++ clustering for given samples with corresponding labels. The number of samples is halved per class."""
@@ -171,9 +210,9 @@ class SAMKNN(BaseClassifier):
                     break
                 samplesShortened = np.delete(self._STMSamples, i, 0)
                 labelsShortened = np.delete(self._STMLabels, i, 0)
-                distancesSTM = SAMKNN.getDistances(self._STMSamples[i,:], samplesShortened)
+                distancesSTM = self.getMetricDistances(self._STMSamples[i,:], samplesShortened, labelsShortened)
                 nnIndicesSTM = libNearestNeighbor.nArgMin(self.n_neighbors, distancesSTM)[0]
-                distancesLTM = SAMKNN.getDistances(self._STMSamples[i,:], samplesCl)
+                distancesLTM = self.getDistances(self._STMSamples[i,:], samplesCl)
                 nnIndicesLTM = libNearestNeighbor.nArgMin(min(len(distancesLTM), self.n_neighbors), distancesLTM)[0]
                 correctIndicesSTM = nnIndicesSTM[labelsShortened[nnIndicesSTM] == self._STMLabels[i]]
                 if len(correctIndicesSTM) > 0:
@@ -199,7 +238,8 @@ class SAMKNN(BaseClassifier):
 
         if self.recalculateSTMError is not None:
             if STMShortened:
-                distancesSTM = SAMKNN.getDistances(sample, self._STMSamples[:-1,:])
+                logging.debug('STM Sample shape %s; STM Label shape %s' % (np.shape(self._STMSamples), np.shape(self._STMLabels)))
+                distancesSTM = self.getMetricDistances(sample, self._STMSamples[:-1,:], self._STMLabels[:-1])
 
             self.STMDistances[len(self._STMLabels)-1,:len(self._STMLabels)-1] = distancesSTM
             oldWindowSize = len(self._STMLabels)
@@ -230,14 +270,14 @@ class SAMKNN(BaseClassifier):
 
     def getSTMDistances(self, sample):
         if self._STMSamples is not None:
-            return SAMKNN.getDistances(sample, self._STMSamples)
+            return self.getMetricDistances(sample, self._STMSamples, self._STMLabels)
         else:
             return None
 
 
     def _partial_fit(self, sample, sampleLabel):
         """Processes a new sample."""
-        distancesSTM = SAMKNN.getDistances(sample, self._STMSamples)
+        distancesSTM = self.getMetricDistances(sample, self._STMSamples, self._STMLabels)
         predictedLabel = self.predictFct(sample, sampleLabel, distancesSTM)
         self.singleFit(sample, sampleLabel, distancesSTM)
 
@@ -252,7 +292,7 @@ class SAMKNN(BaseClassifier):
         predictedLabel = 0
         if len(self._STMLabels) > 0:
             predictedLabelSTM = self.getLabelsFct(distancesSTM, self._STMLabels, min(len(self._STMLabels), self.n_neighbors))[0]
-            distancesLTM = SAMKNN.getDistances(sample, self._LTMSamples)
+            distancesLTM = self.getDistances(sample, self._LTMSamples)
             predictedLabelCM = self.getLabelsFct(np.append(distancesSTM, distancesLTM), np.append(self._STMLabels, self._LTMLabels), min(len(self._STMLabels) + len(self._LTMLabels), self.n_neighbors))[0]
             if len(self._LTMLabels) > 0:
                 predictedLabelLTM = self.getLabelsFct(distancesLTM, self._LTMLabels, min(len(self._LTMLabels), self.n_neighbors))[0]
