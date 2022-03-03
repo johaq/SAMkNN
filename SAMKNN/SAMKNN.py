@@ -85,6 +85,8 @@ class SAMKNN(BaseClassifier):
         self.metric_step = metric_step
         self.metric_learner = LMNN(k=3, learn_rate=1e-6, verbose=False)
 
+        self.relevancies = []
+
     def getClassifier(self):
         return None
 
@@ -126,6 +128,7 @@ class SAMKNN(BaseClassifier):
                             samples = self.metric_learner.transform(samples)
                             sample = self.metric_learner.transform(np.stack([sample]))
                             sample = sample[0]
+                            self.relevancies.append(self.metric_learner.get_mahalanobis_matrix().diagonal())
                             self.metric_init = True
                             self.trainStepCount += 1
                         except TypeError:

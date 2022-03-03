@@ -25,6 +25,7 @@ def run(X, y, hyperParams, visualize=False):
     logging.info('applying model on dataset')
     predictedLabels, complexity, complexityNumParameterMetric = classifier.trainOnline(X, y, np.unique(y))
     accuracy = accuracy_score(y, predictedLabels)
+    np.savetxt('relevancies', classifier.relevancies, delimiter=' ')
     logging.info('error rate %.2f%%' % (100-100*accuracy))
 
 if __name__ == '__main__':
