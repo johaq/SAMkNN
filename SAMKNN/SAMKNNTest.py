@@ -30,7 +30,7 @@ def run(X, y, hyperParams, visualize=False):
 if __name__ == '__main__':
     logging.basicConfig(format='%(message)s', level=logging.DEBUG)
     hyperParams ={'maxSize': 1000, 'nNeighbours': 3, 'knnWeights': 'distance', 'recalculateSTMError': False,
-                  'useLTM': True, 'metric': 'LMNN', 'metric_step': 100}
+                  'useLTM': True, 'metric': 'LMNN', 'metric_step': 500}
     #hyperParams = {'windowSize': 5000, 'nNeighbours': 5, 'knnWeights': 'distance', 'STMSizeAdaption': None,
     #               'useLTM': False}
 
@@ -64,8 +64,10 @@ if __name__ == '__main__':
         X, y = loader.load_interchanging_rbf()
     elif data == "moving_rbf":
         X, y = loader.load_moving_rbf()
+    else:
+        X, y = loader.load_toy(data)
 
     logging.info('%d samples' % X.shape[0])
     logging.info('%d dimensions' % X.shape[1])
-    run(X, y, hyperParams, visualize=False)
+    run(X, y, hyperParams, visualize=True)
 

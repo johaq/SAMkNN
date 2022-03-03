@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import time
+import sklearn
+
 def getClassColors():
     """
     Returns various different colors.
@@ -21,9 +23,10 @@ class ClassifierVisualizer(ClassifierListener):
     """
     Classifier visualizer implemented as listener.
     """
-    DRAW_STM = True
-    DRAW_LTM = True
-    DRAW_FIXED_SLIDING_WINDOW = True
+    DRAW_STM = False
+    DRAW_LTM = False
+    DRAW_FIXED_SLIDING_WINDOW = False
+    DRAW_FEATURE_RELEVANCE = True
     FIXED_SLIDING_WINDOW_SIZE = 500
     def __init__(self, X, y, drawInterval=200, datasetName=''):
         super(ClassifierVisualizer, self).__init__()
@@ -47,6 +50,8 @@ class ClassifierVisualizer(ClassifierListener):
             self.subplotSTM = self.fig.add_subplot(312, aspect='equal')
         if ClassifierVisualizer.DRAW_LTM:
             self.subplotLTM = self.fig.add_subplot(313, aspect='equal')
+        if ClassifierVisualizer.DRAW_FEATURE_RELEVANCE:
+            self.subplotFR = self.fig.add_subplot(311, aspect='equal')
 
         plt.tick_params(
         axis='both',
@@ -62,6 +67,7 @@ class ClassifierVisualizer(ClassifierListener):
             self.subplotSTM.clear()
             self.plot(classifier.STMSamples, classifier.STMLabels, self.fig,  self.subplotSTM,
                                         'STM size %d' % classifier.STMSamples.shape[0], getClassColors(), XRange=[self.minX, self.maxX], YRange=[self.minY, self.maxY])
+
         if ClassifierVisualizer.DRAW_LTM:
             self.subplotLTM.clear()
             self.plot(classifier.LTMSamples[:,:], classifier.LTMLabels[:], self.fig,  self.subplotLTM,
@@ -72,6 +78,18 @@ class ClassifierVisualizer(ClassifierListener):
             startIdx = max(classifier.trainStepCount-ClassifierVisualizer.FIXED_SLIDING_WINDOW_SIZE, 0)
             self.plot(self.X[startIdx:trainStep, :], self.y[startIdx:trainStep], self.fig,  self.subplotSliding,
                                         'Fixed Sliding Window size %d' % ClassifierVisualizer.FIXED_SLIDING_WINDOW_SIZE, getClassColors(), XRange=[self.minX, self.maxX], YRange=[self.minY, self.maxY])
+
+        if ClassifierVisualizer.DRAW_FEATURE_RELEVANCE:
+            self.subplotFR.clear()
+            try:
+                classes = ['0', '1', '2', '3', '4','5', '6', '7', '8', '9']
+                relevance = classifier.metric_learner.get_mahalanobis_matrix().diagonal()
+                self.subplotFR.bar(classes, relevance)
+                #self.plotBar(classifier.metric_learer.get_mahalanobis_matrix().diagonal())
+            except sklearn.exceptions.NotFittedError:
+                print('')
+
+
         self.fig.canvas.draw()
         plt.pause(0.001)
 

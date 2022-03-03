@@ -72,3 +72,7 @@ class DataLoader:
     def load_rialto(self):
         return self.load_data_file("./data/driftDatasets/realWorld/rialto/rialto.data",
                               "./data/driftDatasets/realWorld/rialto/rialto.labels")
+
+    def load_toy(self, name):
+        return self.load_data_file("./data/driftDatasets/artificial/toy/toy"+name+".data",
+                              "./data/driftDatasets/artificial/toy/toy"+name+".label")

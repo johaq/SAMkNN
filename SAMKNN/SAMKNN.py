@@ -119,9 +119,10 @@ class SAMKNN(BaseClassifier):
                 if self.trainStepCount >= self.metric_step:
                     if self.trainStepCount % self.metric_step == 0:
                         logging.debug('Relearn metric after %d steps' % self.trainStepCount)
-                        logging.debug('Sample shape %s; Label shape %s' % (np.shape(samples), np.shape(samples_labels)))
                         try:
                             self.metric_learner.fit(samples, samples_labels)
+                            logging.debug('New Metric:')
+                            logging.debug(self.metric_learner.get_mahalanobis_matrix().diagonal())
                             samples = self.metric_learner.transform(samples)
                             sample = self.metric_learner.transform(np.stack([sample]))
                             sample = sample[0]
@@ -129,8 +130,10 @@ class SAMKNN(BaseClassifier):
                             self.trainStepCount += 1
                         except TypeError:
                             logging.info('Imposter list empty for lmnn, continue with euclidian distances for now')
+                            return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
         except ValueError:
             logging.info("Not enough data of every class to calculate metric yet. Skipping.")
+            return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
 
         return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
 
@@ -238,7 +241,6 @@ class SAMKNN(BaseClassifier):
 
         if self.recalculateSTMError is not None:
             if STMShortened:
-                logging.debug('STM Sample shape %s; STM Label shape %s' % (np.shape(self._STMSamples), np.shape(self._STMLabels)))
                 distancesSTM = self.getMetricDistances(sample, self._STMSamples[:-1,:], self._STMLabels[:-1])
 
             self.STMDistances[len(self._STMLabels)-1,:len(self._STMLabels)-1] = distancesSTM
