@@ -8,6 +8,7 @@ from ClassifierListener import DummyClassifierListener
 import logging
 import sys
 from data_loader import DataLoader
+from datetime import datetime
 
 def run(X, y, hyperParams, visualize=False):
     """
@@ -25,13 +26,15 @@ def run(X, y, hyperParams, visualize=False):
     logging.info('applying model on dataset')
     predictedLabels, complexity, complexityNumParameterMetric = classifier.trainOnline(X, y, np.unique(y))
     accuracy = accuracy_score(y, predictedLabels)
-    np.savetxt('relevancies', classifier.relevancies, delimiter=' ')
+    print(datetime.now().strftime("%d:%m:%Y_%H:%M:%S"))
+    np.savetxt('relevancies_' + datetime.now().strftime("%d:%m:%Y_%H:%M:%S"), classifier.relevancies, delimiter=' ')
+
     logging.info('error rate %.2f%%' % (100-100*accuracy))
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(message)s', level=logging.DEBUG)
     hyperParams ={'maxSize': 1000, 'nNeighbours': 3, 'knnWeights': 'distance', 'recalculateSTMError': False,
-                  'useLTM': True, 'metric': 'LMNN', 'metric_step': 500}
+                  'useLTM': True, 'metric': 'lmnn', 'metric_step': 100}
     #hyperParams = {'windowSize': 5000, 'nNeighbours': 5, 'knnWeights': 'distance', 'STMSizeAdaption': None,
     #               'useLTM': False}
 
@@ -70,5 +73,5 @@ if __name__ == '__main__':
 
     logging.info('%d samples' % X.shape[0])
     logging.info('%d dimensions' % X.shape[1])
-    run(X, y, hyperParams, visualize=True)
+    run(X, y, hyperParams, visualize=False)
 

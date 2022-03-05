@@ -122,7 +122,15 @@ class SAMKNN(BaseClassifier):
                     if self.trainStepCount % self.metric_step == 0:
                         logging.debug('Relearn metric after %d steps' % self.trainStepCount)
                         try:
-                            self.metric_learner.fit(samples, samples_labels)
+                            #print("stm shape: " + str(np.shape(self._STMSamples)))
+                            #print("sample shape: " + str(np.shape(samples)))
+                            #print("label shape: " + str(np.shape(self._STMLabels)))
+                            train_metric_X = np.vstack([self._STMSamples, samples])
+                            train_metric_Y = np.hstack([self._STMLabels, samples_labels])
+                            #print("new train dim: " + str(np.shape(train_metric_X)))
+                            #print("new label dim: " + str(np.shape(train_metric_Y)))
+                            #print(np.shape(train_metric_Y))
+                            self.metric_learner.fit(train_metric_X, train_metric_Y)
                             logging.debug('New Metric:')
                             logging.debug(self.metric_learner.get_mahalanobis_matrix().diagonal())
                             samples = self.metric_learner.transform(samples)
@@ -131,11 +139,11 @@ class SAMKNN(BaseClassifier):
                             self.relevancies.append(self.metric_learner.get_mahalanobis_matrix().diagonal())
                             self.metric_init = True
                             self.trainStepCount += 1
-                        except TypeError:
-                            logging.info('Imposter list empty for lmnn, continue with euclidian distances for now')
+                        except TypeError as e:
+                            logging.info('Imposter list empty for lmnn, continue with euclidian distances for now' + str(e))
                             return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
-        except ValueError:
-            logging.info("Not enough data of every class to calculate metric yet. Skipping.")
+        except ValueError as e:
+            logging.info("Not enough data of every class to calculate metric yet. Skipping." + str(e))
             return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
 
         return np.sqrt(libNearestNeighbor.get1ToNDistances(sample, samples))
