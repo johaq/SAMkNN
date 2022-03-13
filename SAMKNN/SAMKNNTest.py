@@ -34,7 +34,7 @@ def run(X, y, hyperParams, visualize=False):
 if __name__ == '__main__':
     logging.basicConfig(format='%(message)s', level=logging.DEBUG)
     hyperParams ={'maxSize': 1000, 'nNeighbours': 3, 'knnWeights': 'distance', 'recalculateSTMError': False,
-                  'useLTM': True, 'metric': 'lmnn', 'metric_step': 100}
+                  'useLTM': True, 'metric': 'lmnn', 'metric_step': 500, 'metric_smoothing': False}
     #hyperParams = {'windowSize': 5000, 'nNeighbours': 5, 'knnWeights': 'distance', 'STMSizeAdaption': None,
     #               'useLTM': False}
 
