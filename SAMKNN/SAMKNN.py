@@ -5,6 +5,7 @@ import libNearestNeighbor
 from sklearn.cluster import KMeans
 from collections import deque
 import logging
+from scipy.linalg import sqrtm
 
 from metric_learn import LMNN
 
@@ -36,7 +37,7 @@ class SAMKNN(BaseClassifier):
     """
     def __init__(self, n_neighbors=5, knnWeights='distance', maxSize=5000, LTMSizeProportion = 0.4, minSTMSize=50,
                  recalculateSTMError=False, useLTM=True, listener=[], metric='LMNN', metric_step=100,
-                 metric_smoothing=False):
+                 metric_smoothing=True):
 
         self.n_neighbors = n_neighbors
         self._STMSamples = None
@@ -140,25 +141,25 @@ class SAMKNN(BaseClassifier):
                             #print(self.metric_smoothing)
                             if self.metric_smoothing:
                                 logging.info('Metric Smoothing')
-                                self.metric_history.append(self.metric_learner.get_mahalanobis_matrix())
+                                self.metric_history.insert(0,self.metric_learner.get_mahalanobis_matrix())
                                 delta = 0.99
                                 c = min(self.metric_smoothing_window, len(self.metric_history))
                                 smoothed_matrix = delta * self.metric_history[c-1]
                                 step = 2
                                 for i in range(c-step,-1,-1):
-                                    smoothed_matrix = np.multiply(smoothed_matrix, pow(delta, step)*self.metric_history[i])
+                                    smoothed_matrix = np.add(smoothed_matrix, pow(delta, step)*self.metric_history[i])
                                     step+=1
-                                logging.info(np.shape(smoothed_matrix))
-                                logging.info(np.shape(sample))
-                                samples = [x.dot(smoothed_matrix) for x in samples]
-                                logging.info("apllied smoothed metric to samples")
-                                sample = sample.dot(smoothed_matrix)
-                                logging.info("apllied smoothed metric to sample")
+                                smoothed_matrix = smoothed_matrix/c
+                                comp = sqrtm(smoothed_matrix)
+                                samples = samples.dot(comp.T)
+                                sample = sample.dot(comp.T)
+                                logging.debug(smoothed_matrix.diagonal())
+                                self.relevancies.append(smoothed_matrix.diagonal())
                             else:
                                 samples = self.metric_learner.transform(samples)
                                 sample = self.metric_learner.transform(np.stack([sample]))
                                 sample = sample[0]
-                            self.relevancies.append(self.metric_learner.get_mahalanobis_matrix().diagonal())
+                                self.relevancies.append(self.metric_learner.get_mahalanobis_matrix().diagonal())
                             self.metric_init = True
                             self.trainStepCount += 1
                         except TypeError as e:
